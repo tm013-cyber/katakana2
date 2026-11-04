@@ -138,7 +138,9 @@ const ROMA = {
 };
 const ALL_CHARS = Object.keys(ROMA);
 const DEFAULT_REWARDS = [
-  { text: "すごい!", emoji: "⭐" }, { text: "やったね!", emoji: "🎉" }, { text: "じょうず!", emoji: "🏆" }
+  { text: "すごい!", say: "すごい!", emoji: "⭐" },
+  { text: "やったね!", say: "やったね!", emoji: "🎉" },
+  { text: "じょうず!", say: "じょうず!", emoji: "🏆" }
 ];
 
 let WORDS = {};
@@ -158,7 +160,6 @@ function showWarn(msg) {
   const w = document.getElementById("warn");
   w.textContent = msg; w.style.display = "block";
 }
-// fetch → 失敗時は XMLHttpRequest で再試行(file:// 対策)
 async function loadWords() {
   const url = REWARD_DIR + "words.txt?t=" + Date.now();
   try {
@@ -202,24 +203,83 @@ async function collectRewards(ch) {
   for (let n = 1; n <= MAX_PER_CHAR; n++) {
     const key = `${roma}_${n}`;
     const img = await findImage(key);
-    const text = WORDS[key];
-    if (img || text) list.push({ text: text || "", img: img, emoji: "⭐" });
+    const word = WORDS[key];
+    if (img || word) {
+      list.push({ text: word || "", say: word ? `${word}の${ch}` : "", img: img, emoji: "⭐" });
+    }
   }
   return list;
 }
 
-/* ============ 設定:判定 ============
-   完成条件:
-   (1) 全体の通過率が PASS_RATE 以上
-   (2) 文字を GRID_N×GRID_N 領域に分け、判定点のある全領域で AREA_RATE 以上通過
-   ・最後までなぞらず終わる → AREA_RATE を上げる / PASS_RATE を上げる
-   ・最後までなぞっても終わらない → AREA_RATE / PASS_RATE を下げる、HIT_RADIUS を上げる */
-const PASS_RATE  = 0.75;
-const AREA_RATE  = 0.40;
-const GRID_N     = 3;
-const HIT_RADIUS = 0.085;
-const POINT_STEP = 6;
-const STROKE_W   = 0.07;
+/* ============ 書き順データ ============
+   座標は 0〜100(文字の外接ボックスを正規化)。
+   各画は「大まかな通過点」の折れ線。先頭=スタート、末尾=ゴール。
+   実際の位置は、フォントの線の中心(骨格)に自動で吸着される。 */
+const STROKES = {
+  // ア:1画目の終点を少し右上へ
+  "ア": [[[8,12],[92,12],[85,38],[66,54],[59,53]], [[55,28],[50,55],[26,100]]],
+  "イ": [[[72,5],[40,45],[8,65]], [[60,38],[60,95]]],
+  "ウ": [[[50,2],[50,22]], [[12,30],[12,60]], [[12,30],[90,30],[85,58],[55,82],[18,98]]],
+  "エ": [[[18,15],[82,15]], [[50,15],[50,85]], [[8,85],[92,85]]],
+  "オ": [[[5,32],[95,32]], [[58,3],[58,78],[42,98]], [[55,35],[30,70],[8,85]]],
+  "カ": [[[10,30],[88,30],[84,65],[72,90],[50,92]], [[50,3],[45,50],[25,82],[5,95]]],
+  "キ": [[[15,28],[90,15]], [[10,55],[92,42]], [[50,3],[48,98]]],
+  "ク": [[[58,3],[28,40],[8,60]], [[40,30],[92,30],[85,60],[60,85],[18,98]]],
+  "ケ": [[[45,3],[22,38],[5,55]], [[28,30],[92,30]], [[62,30],[60,65],[38,95]]],
+  "コ": [[[12,18],[88,18],[88,85]], [[12,85],[88,85]]],
+  "サ": [[[8,35],[92,35]], [[32,5],[32,50]], [[68,5],[68,65],[50,90],[25,98]]],
+  // シ:1画目は2画目と同じ相対位置(始点→終点 = 右下へ約(+17,+18))。始点は少し右上へ
+  "シ": [[[17,0],[45,18]], [[5,40],[22,58]], [[20,95],[55,78],[92,30]]],
+  // セ:1画目は右端で跳ねたあと左下へ(ヤの1画目と同じ要領)
+  "セ": [[[5,38],[95,30],[75,65]], [[38,5],[40,72],[62,92],[92,85],[95,72],[85,92]]],
+  "ソ": [[[22,3],[35,35]], [[82,8],[70,50],[40,95]]],
+  // タ:3画(最初の版の3画目=下の横線に戻す)
+  "タ": [[[52,3],[25,35],[8,48]], [[32,22],[90,22],[82,58],[55,82],[18,98]], [[32,58],[68,62]]],
+  "チ": [[[78,8],[22,25]], [[8,52],[92,52]], [[52,25],[52,68],[35,95]]],
+  "ツ": [[[10,20],[25,42]], [[42,12],[52,38]], [[85,8],[72,52],[42,95]]],
+  "テ": [[[25,12],[75,12]], [[8,42],[92,42]], [[52,42],[52,68],[35,95]]],
+  "ト": [[[35,3],[35,98]], [[35,42],[85,65]]],
+  "ナ": [[[5,32],[95,32]], [[58,3],[58,45],[40,75],[18,95]]],
+  "ニ": [[[22,28],[78,28]], [[5,78],[95,78]]],
+  "ヌ": [[[8,18],[88,18],[70,52],[40,78],[10,95]], [[38,38],[90,92]]],
+  "ネ": [[[50,2],[50,28]], [[8,28],[90,28],[70,48],[10,85]], [[48,45],[40,95]],[[72,58],[92,85]]],
+  "ノ": [[[80,3],[60,55],[25,98]]],
+  "ハ": [[[38,15],[20,55],[5,82]], [[62,15],[75,55],[95,82]]],
+  // ヒ:1画目の終点を少し左下へ
+  "ヒ": [[[88,12],[48,34],[25,50]], [[28,5],[28,72],[48,90],[92,85]]],
+  "フ": [[[12,15],[88,15],[80,48],[48,78],[10,95]]],
+  "ヘ": [[[3,68],[38,28],[62,45],[97,80]]],
+  "ホ": [[[5,32],[95,32]], [[52,3],[52,98],[38,90]], [[25,58],[8,85]], [[78,58],[95,85]]],
+  // マ:1画目は変更なし。2画目の始点・終点を左上へ移動
+  "マ": [[[10,15],[88,15],[70,48],[48,68]], [[34,38],[74,78]]],
+  "ミ": [[[22,12],[78,28]], [[12,45],[82,60]], [[5,78],[88,92]]],
+  // ム:1画目の終点をさらに少し左上へ
+  "ム": [[[48,3],[20,62],[3,88],[15,88],[80,84]], [[58,58],[95,95]]],
+  "メ": [[[78,8],[22,92]], [[22,32],[52,52],[90,92]]],
+  "モ": [[[20,15],[80,15]], [[12,48],[88,48]], [[46,3],[46,68],[60,90],[90,85]]],
+  // ヤ:1画目の終点をさらに少し左下へ
+  "ヤ": [[[8,40],[48,28],[92,38],[95,25],[78,62]], [[38,3],[52,50],[68,92]]],
+  "ユ": [[[18,28],[82,28],[76,82]], [[5,75],[95,75]]],
+  "ヨ": [[[15,15],[85,15],[85,85]], [[15,50],[85,50]], [[15,85],[85,85]]],
+  "ラ": [[[25,15],[75,15]], [[12,42],[88,42],[75,65],[48,85],[15,98]]],
+  "リ": [[[28,8],[28,62]], [[72,3],[72,65],[52,88],[28,98]]],
+  "ル": [[[38,10],[38,65],[25,88]], [[65,10],[65,75],[82,88],[95,78]]],
+  "レ": [[[28,3],[28,92],[92,75]]],
+  "ロ": [[[12,15],[12,85]], [[12,15],[88,15],[88,85]], [[12,85],[88,85]]],
+  // ワ:1画目は垂直、1・2画目の始点を左へ移動
+  "ワ": [[[12,8],[12,35]], [[12,8],[88,30],[82,62],[55,85],[22,98]]],
+  "ヲ": [[[15,8],[85,8]], [[15,38],[85,38],[78,45]], [[85,8],[62,62],[22,98]]],
+  "ン": [[[10,15],[28,32]], [[15,85],[55,72],[92,28]]]
+};
+
+/* ============ 設定:判定 ============ */
+const START_R   = 0.045; // 以前は 0.06
+const GOAL_R    = 0.045; // 以前は 0.06
+const TRACK_R   = 0.085;
+const PASS_FRAC = 0.80;
+const STROKE_W  = 0.07;
+const SAY_INTERVAL = 1000;
+const SNAP_RANGE = 0.14;  // 制御点を骨格に吸着させる探索範囲(文字ボックスの幅比)
 
 /* ============ 効果音 ============ */
 let actx = null;
@@ -245,7 +305,9 @@ const SE = {
   pop()    { tone(300, 0, 0.18, "sine", 0.35, 900); },
   fanfare(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.12, 0.3, "triangle", 0.25)); tone(1047, 0.5, 0.6, "triangle", 0.25); },
   tap()    { tone(660, 0, 0.08, "sine", 0.12); },
-  tick()   { tone(900, 0, 0.05, "square", 0.1); }
+  tick()   { tone(900, 0, 0.05, "square", 0.1); },
+  strokeDone() { tone(660, 0, 0.12, "triangle", 0.25); tone(880, 0.1, 0.18, "triangle", 0.25); },
+  nope()   { tone(200, 0, 0.12, "square", 0.08); }
 };
 let rollTimer = null;
 
@@ -282,6 +344,14 @@ function speak(text, delay = 0) {
   };
   delay ? setTimeout(run, delay) : run();
 }
+function speakSoft(text) {
+  if (!text || !("speechSynthesis" in window)) return;
+  if (speechSynthesis.speaking || speechSynthesis.pending) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "ja-JP"; u.rate = 0.9; u.pitch = 1.2; u.volume = 1;
+  if (jaVoice) u.voice = jaVoice;
+  speechSynthesis.speak(u);
+}
 
 /* ============ 画面切替 ============ */
 function show(id) {
@@ -296,6 +366,7 @@ document.getElementById("selBack").onclick = () => { SE.tap(); show("menu"); };
 document.getElementById("rouBack").onclick = () => { SE.tap(); show("menu"); };
 
 function goNext() {
+  stopTraceSound();
   if (mode === "roulette") { show("roulette"); resetRoulette(); }
   else show("select");
 }
@@ -351,12 +422,26 @@ document.getElementById("rouSpin").onclick = () => {
   step();
 };
 
-/* ============ なぞり ============ */
+/* ============ なぞり(書き順・スタート・ゴール) ============ */
 const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d");
 const bar = document.getElementById("progressBar");
-let currentChar = "", targetPoints = [], hit = [], drawing = false, cleared = false, size = 600;
-let userStrokes = [], pendingRewards = null;
+const FONT_FAMILY = "'Hiragino Maru Gothic ProN','Hiragino Sans',sans-serif";
+let currentChar = "", size = 600, cleared = false, drawing = false;
+let pendingRewards = null;
+
+let strokes = [], strokeLens = [];
+let curStroke = 0, progressLen = 0;
+let userLines = [], curLine = [];
+let soundTimer = null, lastP = null;
+let pulse = 0, animId = null;
+let glyphBox = { x: 0, y: 0, w: 1, h: 1 };
+
+// 骨格解析用データ
+const SR = 200;            // 解析解像度
+let dist = null;           // 距離変換(線の縁からの距離)
+
+function fontSize() { return size * 0.85; }
 
 function setupCanvas() {
   const rect = cv.getBoundingClientRect();
@@ -365,47 +450,243 @@ function setupCanvas() {
   cv.width = size * dpr; cv.height = size * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-// 画面に描くお手本と同じ位置・大きさで判定点を作る(ズレ防止)
-function buildTargets() {
-  const R = 200; // サンプリング用解像度
+
+/* 背景の文字を解析:外接ボックスと距離変換を求める */
+function analyzeGlyph() {
   const off = document.createElement("canvas");
-  off.width = off.height = R;
+  off.width = off.height = SR;
   const o = off.getContext("2d");
   o.fillStyle = "#000"; o.textAlign = "center"; o.textBaseline = "middle";
-  o.font = `bold ${R * 0.85}px 'Hiragino Maru Gothic ProN','Hiragino Sans',sans-serif`;
-  o.fillText(currentChar, R / 2, R * 0.54);
-  const data = o.getImageData(0, 0, R, R).data;
-  targetPoints = [];
-  for (let y = 0; y < R; y += POINT_STEP)
-    for (let x = 0; x < R; x += POINT_STEP)
-      if (data[(y * R + x) * 4 + 3] > 128) {
-        const nx = x / R, ny = y / R;
-        targetPoints.push({
-          x: nx, y: ny,
-          area: Math.min(GRID_N - 1, Math.floor(ny * GRID_N)) * GRID_N + Math.min(GRID_N - 1, Math.floor(nx * GRID_N))
-        });
+  o.font = `bold ${SR * 0.85}px ${FONT_FAMILY}`;
+  o.fillText(currentChar, SR / 2, SR * 0.54);
+  const d = o.getImageData(0, 0, SR, SR).data;
+
+  const inside = new Uint8Array(SR * SR);
+  let minX = SR, minY = SR, maxX = -1, maxY = -1;
+  for (let y = 0; y < SR; y++) {
+    for (let x = 0; x < SR; x++) {
+      if (d[(y * SR + x) * 4 + 3] > 110) {
+        inside[y * SR + x] = 1;
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
       }
-  hit = new Array(targetPoints.length).fill(false);
+    }
+  }
+  if (maxX < 0) { minX = 20; maxX = SR - 20; minY = 20; maxY = SR - 20; }
+  const k = size / SR;
+  glyphBox = { x: minX * k, y: minY * k, w: (maxX - minX) * k, h: (maxY - minY) * k };
+  glyphBoxS = { x: minX, y: minY, w: maxX - minX, h: maxY - minY }; // 解析座標系
+
+  // 距離変換(チャンファー法・2パス)
+  const INF = 1e9;
+  dist = new Float32Array(SR * SR);
+  for (let i = 0; i < SR * SR; i++) dist[i] = inside[i] ? INF : 0;
+  const A = 1, B = 1.4142;
+  for (let y = 0; y < SR; y++) {
+    for (let x = 0; x < SR; x++) {
+      const i = y * SR + x; if (!dist[i]) continue;
+      let v = dist[i];
+      if (x > 0)            v = Math.min(v, dist[i - 1] + A);
+      if (y > 0)            v = Math.min(v, dist[i - SR] + A);
+      if (x > 0 && y > 0)   v = Math.min(v, dist[i - SR - 1] + B);
+      if (x < SR - 1 && y > 0) v = Math.min(v, dist[i - SR + 1] + B);
+      dist[i] = v;
+    }
+  }
+  for (let y = SR - 1; y >= 0; y--) {
+    for (let x = SR - 1; x >= 0; x--) {
+      const i = y * SR + x; if (!dist[i]) continue;
+      let v = dist[i];
+      if (x < SR - 1)            v = Math.min(v, dist[i + 1] + A);
+      if (y < SR - 1)            v = Math.min(v, dist[i + SR] + A);
+      if (x < SR - 1 && y < SR - 1) v = Math.min(v, dist[i + SR + 1] + B);
+      if (x > 0 && y < SR - 1)   v = Math.min(v, dist[i + SR - 1] + B);
+      dist[i] = v;
+    }
+  }
 }
-function redraw() {
-  ctx.clearRect(0, 0, size, size);
-  ctx.fillStyle = "rgba(0,0,0,0.13)";
-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.font = `bold ${size * 0.85}px 'Hiragino Maru Gothic ProN','Hiragino Sans',sans-serif`;
-  ctx.fillText(currentChar, size / 2, size * 0.54);
-  ctx.strokeStyle = "#ef5350"; ctx.lineWidth = size * STROKE_W;
-  ctx.lineCap = "round"; ctx.lineJoin = "round";
-  userStrokes.forEach(s => {
-    ctx.beginPath();
-    s.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
-    if (s.length === 1) ctx.lineTo(s[0].x + 0.1, s[0].y);
-    ctx.stroke();
+let glyphBoxS = { x: 0, y: 0, w: 1, h: 1 };
+
+// 0〜100 → 解析座標(SR系)
+function toSR(p) {
+  return { x: glyphBoxS.x + p[0] / 100 * glyphBoxS.w, y: glyphBoxS.y + p[1] / 100 * glyphBoxS.h };
+}
+// 解析座標 → キャンバス座標
+function srToCanvas(p) { const k = size / SR; return { x: p.x * k, y: p.y * k }; }
+
+/* 点を文字の線の中心に吸着:範囲内で「線の内側かつ中心に近い点」を探す */
+function snap(p) {
+  const range = Math.max(6, Math.round(SNAP_RANGE * Math.max(glyphBoxS.w, glyphBoxS.h)));
+  const cx = Math.round(p.x), cy = Math.round(p.y);
+  let best = null, bestScore = -Infinity;
+  for (let dy = -range; dy <= range; dy++) {
+    for (let dx = -range; dx <= range; dx++) {
+      const x = cx + dx, y = cy + dy;
+      if (x < 0 || y < 0 || x >= SR || y >= SR) continue;
+      const v = dist[y * SR + x];
+      if (v <= 0) continue;
+      const dd = Math.hypot(dx, dy);
+      if (dd > range) continue;
+      // 中心度(距離値が大きいほど良い)と、元の位置への近さの両方を評価
+      const score = v * 2.2 - dd;
+      if (score > bestScore) { bestScore = score; best = { x, y }; }
+    }
+  }
+  return best || p;
+}
+// 端点(スタート・ゴール)は、線の端に寄せたいので吸着後に元の方向へ少し戻す
+function snapEnd(p, towards) {
+  const s = snap(p);
+  // 骨格の端は線の中心なので、そのまま使う(文字の太さ分だけ内側に入る)
+  return s;
+}
+
+/* 2点間を、文字の内側(距離値が高い所)を通る経路でつなぐ */
+function connect(a, b) {
+  const n = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 3));
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const q = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+    pts.push(i === 0 || i === n ? q : refine(q));
+  }
+  return pts;
+}
+// 直線上の点を、近傍の局所的な骨格に少しだけ寄せる
+function refine(p) {
+  const r = 4;
+  const cx = Math.round(p.x), cy = Math.round(p.y);
+  let best = p, bestV = dist[cy * SR + cx] || 0;
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      const x = cx + dx, y = cy + dy;
+      if (x < 0 || y < 0 || x >= SR || y >= SR) continue;
+      const v = dist[y * SR + x] - Math.hypot(dx, dy) * 0.3;
+      if (v > bestV) { bestV = v; best = { x, y }; }
+    }
+  }
+  return best;
+}
+
+function buildStrokes() {
+  analyzeGlyph();
+  const def = STROKES[currentChar] || [];
+  strokes = def.map(s => {
+    // 1) 制御点を骨格に吸着
+    const snapped = s.map(p => snap(toSR(p)));
+    // 2) 隣り合う点を骨格に沿ってつなぐ
+    let path = [];
+    for (let i = 0; i < snapped.length - 1; i++) {
+      const seg = connect(snapped[i], snapped[i + 1]);
+      path = path.concat(i === 0 ? seg : seg.slice(1));
+    }
+    // 3) 簡易スムージング(ガタつき除去)
+    path = smooth(path);
+    return path.map(srToCanvas);
+  });
+  strokeLens = strokes.map(s => {
+    const acc = [0];
+    for (let i = 1; i < s.length; i++) acc.push(acc[i - 1] + Math.hypot(s[i].x - s[i - 1].x, s[i].y - s[i - 1].y));
+    return acc;
   });
 }
+function smooth(path) {
+  if (path.length < 5) return path;
+  const out = path.map(p => ({ ...p }));
+  for (let it = 0; it < 2; it++) {
+    for (let i = 1; i < out.length - 1; i++) {
+      out[i] = {
+        x: (out[i - 1].x + out[i].x * 2 + out[i + 1].x) / 4,
+        y: (out[i - 1].y + out[i].y * 2 + out[i + 1].y) / 4
+      };
+    }
+  }
+  return out;
+}
+function strokeTotal(i) { const a = strokeLens[i]; return a[a.length - 1]; }
+
+function nearestOn(i, q) {
+  const pts = strokes[i], acc = strokeLens[i];
+  let best = { d: Infinity, s: 0 };
+  for (let k = 1; k < pts.length; k++) {
+    const a = pts[k - 1], b = pts[k];
+    const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1;
+    let t = ((q.x - a.x) * dx + (q.y - a.y) * dy) / L2;
+    t = Math.max(0, Math.min(1, t));
+    const px = a.x + dx * t, py = a.y + dy * t;
+    const d = Math.hypot(q.x - px, q.y - py);
+    if (d < best.d) best = { d, s: acc[k - 1] + (acc[k] - acc[k - 1]) * t };
+  }
+  return best;
+}
+
+/* 描画 */
+function redraw() {
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = "rgba(0,0,0,0.10)";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = `bold ${fontSize()}px ${FONT_FAMILY}`;
+  ctx.fillText(currentChar, size / 2, size * 0.54);
+
+  ctx.strokeStyle = "#ef5350"; ctx.lineWidth = size * STROKE_W;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  [...userLines, curLine].forEach(line => {
+    if (!line.length) return;
+    ctx.beginPath();
+    line.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+    if (line.length === 1) ctx.lineTo(line[0].x + 0.1, line[0].y);
+    ctx.stroke();
+  });
+
+  if (cleared || curStroke >= strokes.length) return;
+  const cur = strokes[curStroke];
+
+  // ゴール(薄め)
+  const g = cur[cur.length - 1];
+  ctx.fillStyle = "rgba(239,83,80,0.12)";
+  ctx.beginPath(); ctx.arc(g.x, g.y, size * GOAL_R, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(229,57,53,0.40)"; ctx.lineWidth = size * 0.007;
+  ctx.beginPath(); ctx.arc(g.x, g.y, size * GOAL_R, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = "rgba(93,64,55,0.45)"; ctx.lineWidth = size * 0.006;
+  ctx.beginPath(); ctx.moveTo(g.x - size * 0.012, g.y + size * 0.028); ctx.lineTo(g.x - size * 0.012, g.y - size * 0.03); ctx.stroke();
+  ctx.fillStyle = "rgba(229,57,53,0.50)";
+  ctx.beginPath();
+  ctx.moveTo(g.x - size * 0.012, g.y - size * 0.03);
+  ctx.lineTo(g.x + size * 0.026, g.y - size * 0.018);
+  ctx.lineTo(g.x - size * 0.012, g.y - size * 0.006);
+  ctx.closePath(); ctx.fill();
+
+  // スタート
+  const s0 = cur[0];
+  const pr = size * START_R * (1 + 0.12 * Math.sin(pulse));
+  ctx.fillStyle = "rgba(67,160,71,0.28)";
+  ctx.beginPath(); ctx.arc(s0.x, s0.y, pr, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#2e7d32"; ctx.lineWidth = size * 0.009;
+  ctx.beginPath(); ctx.arc(s0.x, s0.y, pr, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = "#2e7d32";
+  ctx.beginPath(); ctx.arc(s0.x, s0.y, size * 0.03, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = `bold ${size * 0.04}px sans-serif`;
+  ctx.fillText(String(curStroke + 1), s0.x, s0.y + size * 0.002);
+}
+function animate() {
+  pulse += 0.12;
+  if (document.getElementById("trace").classList.contains("show")) redraw();
+  animId = requestAnimationFrame(animate);
+}
+
+function updateProgress() {
+  if (!strokes.length) { bar.style.width = "0%"; return; }
+  const frac = curStroke < strokes.length ? Math.min(1, progressLen / strokeTotal(curStroke)) : 0;
+  bar.style.width = Math.min(100, (curStroke + frac) / strokes.length * 100) + "%";
+}
+
 function startTrace(ch) {
-  currentChar = ch; cleared = false; userStrokes = []; pendingRewards = null;
+  currentChar = ch; cleared = false; drawing = false; pendingRewards = null;
+  curStroke = 0; progressLen = 0; userLines = []; curLine = [];
   show("trace");
-  setupCanvas(); buildTargets(); redraw(); updateProgress();
+  setupCanvas(); buildStrokes(); updateProgress();
+  if (!animId) animate();
   speak(ch, 150);
   collectRewards(ch).then(list => { pendingRewards = list; });
 }
@@ -413,74 +694,86 @@ function pos(e) {
   const r = cv.getBoundingClientRect();
   return { x: e.clientX - r.left, y: e.clientY - r.top };
 }
-function markHits(p, prev) {
-  const rad = HIT_RADIUS * size;
-  const pts = [];
-  if (prev) {
-    const d = Math.hypot(p.x - prev.x, p.y - prev.y);
-    const n = Math.max(1, Math.ceil(d / (rad * 0.5)));
-    for (let k = 1; k <= n; k++) pts.push({ x: prev.x + (p.x - prev.x) * k / n, y: prev.y + (p.y - prev.y) * k / n });
-  } else pts.push(p);
-  pts.forEach(q => {
-    targetPoints.forEach((t, i) => {
-      if (!hit[i] && Math.hypot(t.x * size - q.x, t.y * size - q.y) < rad) hit[i] = true;
-    });
-  });
+
+function startTraceSound() {
+  stopTraceSound();
+  soundTimer = setInterval(() => {
+    if (!drawing || cleared) return;
+    speakSoft(currentChar);
+  }, SAY_INTERVAL);
 }
-// 全体通過率と、領域ごとの通過率を計算
-function evaluate() {
-  const total = hit.length;
-  if (!total) return { rate: 0, areasOk: false, areaScore: 0 };
-  const cnt = new Array(GRID_N * GRID_N).fill(0);
-  const hitCnt = new Array(GRID_N * GRID_N).fill(0);
-  targetPoints.forEach((t, i) => { cnt[t.area]++; if (hit[i]) hitCnt[t.area]++; });
-  const rate = hit.filter(Boolean).length / total;
-  let areasOk = true, minArea = 1;
-  cnt.forEach((c, a) => {
-    if (c < 3) return; // 点が少ない領域(端のかけら)は無視
-    const r = hitCnt[a] / c;
-    minArea = Math.min(minArea, r / AREA_RATE);
-    if (r < AREA_RATE) areasOk = false;
-  });
-  return { rate, areasOk, areaScore: Math.min(1, minArea) };
+function stopTraceSound() { clearInterval(soundTimer); soundTimer = null; }
+
+function advance(q) {
+  const i = curStroke;
+  const n = nearestOn(i, q);
+  if (n.d > TRACK_R * size) return;
+  const maxJump = size * 0.22;
+  if (n.s > progressLen && n.s <= progressLen + maxJump) progressLen = n.s;
+  updateProgress();
+
+  const goal = strokes[i][strokes[i].length - 1];
+  const dGoal = Math.hypot(q.x - goal.x, q.y - goal.y);
+  if (dGoal <= GOAL_R * size && progressLen >= strokeTotal(i) * PASS_FRAC) finishStroke();
 }
-function updateProgress() {
-  const ev = evaluate();
-  // バーは「全体」と「最も遅れている領域」の小さいほうを表示
-  const p = Math.min(ev.rate / PASS_RATE, ev.areaScore);
-  bar.style.width = Math.min(100, p * 100) + "%";
-  return ev;
-}
-function checkClear() {
-  if (cleared) return;
-  const ev = updateProgress();
-  if (ev.rate >= PASS_RATE && ev.areasOk) {
-    cleared = true; drawing = false;
+function finishStroke() {
+  userLines.push(curLine); curLine = [];
+  drawing = false; stopTraceSound();
+  curStroke++; progressLen = 0;
+  updateProgress();
+  if (curStroke >= strokes.length) {
+    cleared = true;
+    bar.style.width = "100%";
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
     SE.done();
     speak("できたね!", 500);
     setTimeout(startGacha, 1900);
+  } else {
+    SE.strokeDone();
   }
 }
+
 cv.addEventListener("pointerdown", e => {
-  if (cleared) return;
+  if (cleared || curStroke >= strokes.length) return;
+  const p = pos(e);
+  const s0 = strokes[curStroke][0];
+  if (Math.hypot(p.x - s0.x, p.y - s0.y) > START_R * size * 1.15) { SE.nope(); return; }
   drawing = true; cv.setPointerCapture(e.pointerId);
-  const p = pos(e); userStrokes.push([p]); markHits(p, null); redraw(); checkClear();
+  curLine = [p]; progressLen = 0; lastP = p;
+  startTraceSound();
+  speakSoft(currentChar);
 });
 cv.addEventListener("pointermove", e => {
   if (!drawing || cleared) return;
-  const s = userStrokes[userStrokes.length - 1];
-  const prev = s[s.length - 1], p = pos(e);
-  s.push(p); markHits(p, prev); redraw(); checkClear();
+  const p = pos(e);
+  const prev = lastP || p;
+  const d = Math.hypot(p.x - prev.x, p.y - prev.y);
+  const n = Math.max(1, Math.ceil(d / (size * 0.02)));
+  curLine.push(p);
+  for (let k = 1; k <= n && drawing; k++) {
+    advance({ x: prev.x + (p.x - prev.x) * k / n, y: prev.y + (p.y - prev.y) * k / n });
+  }
+  lastP = p;
 });
-function endDraw() { drawing = false; }
+function endDraw() {
+  if (!drawing) return;
+  drawing = false; stopTraceSound();
+  curLine = []; progressLen = 0; updateProgress();
+}
 cv.addEventListener("pointerup", endDraw);
 cv.addEventListener("pointercancel", endDraw);
 
-document.getElementById("clearBtn").onclick = () => { SE.tap(); userStrokes = []; hit.fill(false); cleared = false; redraw(); updateProgress(); };
+document.getElementById("clearBtn").onclick = () => {
+  SE.tap(); stopTraceSound();
+  cleared = false; drawing = false; curStroke = 0; progressLen = 0; userLines = []; curLine = [];
+  updateProgress();
+};
 document.getElementById("hearBtn").onclick = () => speak(currentChar);
 document.getElementById("backBtn").onclick = () => { SE.tap(); goNext(); };
 window.addEventListener("resize", () => {
-  if (document.getElementById("trace").classList.contains("show")) { setupCanvas(); redraw(); }
+  if (document.getElementById("trace").classList.contains("show")) {
+    setupCanvas(); buildStrokes();
+  }
 });
 
 /* ============ ガチャ ============ */
@@ -537,10 +830,10 @@ function showReward() {
   rewardBox.classList.add("show");
   SE.fanfare();
   confetti();
-  speak(r.text, 300);
+  speak(r.say, 300);
 }
 
-document.getElementById("rewardImg").addEventListener("click", () => speak(currentReward.text));
+document.getElementById("rewardImg").addEventListener("click", () => speak(currentReward.say));
 document.getElementById("againBtn").onclick = () => { SE.tap(); goNext(); };
 
 function confetti() {

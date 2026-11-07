@@ -25,9 +25,18 @@
   .bigbtn:active { transform: translateY(5px); box-shadow: 0 3px 0 rgba(0,0,0,0.2); }
 
   #select { padding: 12px; overflow-y: auto; }
+  .selBar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .modBtn { border: none; border-radius: 16px; padding: 4px 22px; color: #fff; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 rgba(0,0,0,0.22); display: flex; align-items: center; gap: 8px; line-height: 1.1; }
+  .modBtn:active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0,0,0,0.22); }
+  .modBtn .sym { font-size: 44px; }
+  .modBtn .lbl { font-size: 20px; }
+  .modBtn.ten  { background: #ab47bc; }
+  .modBtn.maru { background: #ec407a; }
+  .modBtn.on { outline: 5px solid #ffd54f; transform: translateY(2px); }
   .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px; max-width: 1100px; margin: 8px auto 0; }
   .cell { aspect-ratio: 3 / 4; border: none; border-radius: 14px; font-size: clamp(28px, 6vw, 72px); font-weight: bold; color: #fff; box-shadow: 0 5px 0 rgba(0,0,0,0.2); cursor: pointer; padding: 0; }
   .cell:active { transform: translateY(4px) scale(0.96); box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+  .cell.dis { background: #cfd8dc !important; color: #fafafa; box-shadow: none; opacity: .55; cursor: default; pointer-events: none; }
   .empty { visibility: hidden; }
   .c0 { background: #ef5350; } .c1 { background: #ff7043; } .c2 { background: #fbc02d; }
   .c3 { background: #66bb6a; } .c4 { background: #42a5f5; }
@@ -82,7 +91,11 @@
 </section>
 
 <section id="select" class="screen">
-  <button class="btn gray" id="selBack">← もどる</button>
+  <div class="selBar">
+    <button class="btn gray" id="selBack">← もどる</button>
+    <button class="modBtn ten"  id="tenBtn"><span class="sym">゛</span><span class="lbl">てんてん</span></button>
+    <button class="modBtn maru" id="maruBtn"><span class="sym">゜</span><span class="lbl">まる</span></button>
+  </div>
   <div class="grid" id="grid"></div>
 </section>
 
@@ -119,6 +132,22 @@
 </section>
 
 <script>
+/* ============ 濁音・半濁音の定義 ============ */
+// 濁音(てんてん)
+const TEN = {
+  "カ":"ガ","キ":"ギ","ク":"グ","ケ":"ゲ","コ":"ゴ",
+  "サ":"ザ","シ":"ジ","ス":"ズ","セ":"ゼ","ソ":"ゾ",
+  "タ":"ダ","チ":"ヂ","ツ":"ヅ","テ":"デ","ト":"ド",
+  "ハ":"バ","ヒ":"ビ","フ":"ブ","ヘ":"ベ","ホ":"ボ"
+};
+// 半濁音(まる)
+const MARU = { "ハ":"パ","ヒ":"ピ","フ":"プ","ヘ":"ペ","ホ":"ポ" };
+
+// 派生文字 → { base: 元の文字, kind: "ten" | "maru" }
+const DERIVED = {};
+Object.entries(TEN).forEach(([b, d]) => DERIVED[d] = { base: b, kind: "ten" });
+Object.entries(MARU).forEach(([b, d]) => DERIVED[d] = { base: b, kind: "maru" });
+
 /* ============ ご褒美の自動読み込み ============ */
 const REWARD_DIR = "rewards/";
 const IMG_EXTS = ["png", "jpg", "jpeg", "webp"];
@@ -134,9 +163,18 @@ const ROMA = {
   "マ":"ma","ミ":"mi","ム":"mu","メ":"me","モ":"mo",
   "ヤ":"ya","ユ":"yu","ヨ":"yo",
   "ラ":"ra","リ":"ri","ル":"ru","レ":"re","ロ":"ro",
-  "ワ":"wa","ヲ":"wo","ン":"n"
+  "ワ":"wa","ヲ":"wo","ン":"n",
+  // 濁音
+  "ガ":"ga","ギ":"gi","グ":"gu","ゲ":"ge","ゴ":"go",
+  "ザ":"za","ジ":"ji","ズ":"zu","ゼ":"ze","ゾ":"zo",
+  "ダ":"da","ヂ":"di","ヅ":"du","デ":"de","ド":"do",
+  "バ":"ba","ビ":"bi","ブ":"bu","ベ":"be","ボ":"bo",
+  // 半濁音
+  "パ":"pa","ピ":"pi","プ":"pu","ペ":"pe","ポ":"po"
 };
-const ALL_CHARS = Object.keys(ROMA);
+const BASE_CHARS = ["ア","イ","ウ","エ","オ","カ","キ","ク","ケ","コ","サ","シ","ス","セ","ソ","タ","チ","ツ","テ","ト","ナ","ニ","ヌ","ネ","ノ","ハ","ヒ","フ","ヘ","ホ","マ","ミ","ム","メ","モ","ヤ","ユ","ヨ","ラ","リ","ル","レ","ロ","ワ","ヲ","ン"];
+const ALL_CHARS = Object.keys(ROMA); // 基本+濁音+半濁音(ルーレット用)
+
 const DEFAULT_REWARDS = [
   { text: "すごい!", say: "すごい!", emoji: "⭐" },
   { text: "やったね!", say: "やったね!", emoji: "🎉" },
@@ -372,27 +410,49 @@ function goNext() {
   else show("select");
 }
 
-/* ============ 五十音表 ============ */
+/* ============ 五十音表(濁点・半濁点フィルタ付き) ============ */
 const columns = [
   ["ア","イ","ウ","エ","オ"],["カ","キ","ク","ケ","コ"],["サ","シ","ス","セ","ソ"],
   ["タ","チ","ツ","テ","ト"],["ナ","ニ","ヌ","ネ","ノ"],["ハ","ヒ","フ","ヘ","ホ"],
   ["マ","ミ","ム","メ","モ"],["ヤ","","ユ","","ヨ"],["ラ","リ","ル","レ","ロ"],["ワ","","ヲ","","ン"]
 ];
 const grid = document.getElementById("grid");
-for (let r = 0; r < 5; r++) {
-  for (let c = columns.length - 1; c >= 0; c--) {
-    const ch = columns[c][r];
-    const b = document.createElement("button");
-    if (ch === "") b.className = "cell empty";
-    else {
-      b.className = "cell c" + r; b.textContent = ch;
-      b.addEventListener("click", () => startTrace(ch));
-    }
-    grid.appendChild(b);
-  }
-}
+const tenBtn = document.getElementById("tenBtn");
+const maruBtn = document.getElementById("maruBtn");
+let modKind = null; // null(通常) / "ten" / "maru"
 
-/* ============ ルーレット ============ */
+function renderGrid() {
+  grid.innerHTML = "";
+  for (let r = 0; r < 5; r++) {
+    for (let c = columns.length - 1; c >= 0; c--) {
+      const ch = columns[c][r];
+      const b = document.createElement("button");
+      if (ch === "") {
+        b.className = "cell empty";
+      } else {
+        // 濁点・半濁点モード中は、変換できる文字だけ有効
+        const map = modKind === "ten" ? TEN : modKind === "maru" ? MARU : null;
+        const target = map ? map[ch] : ch;
+        b.className = "cell c" + r;
+        b.textContent = target || ch;
+        if (map && !target) {
+          b.classList.add("dis");
+          b.disabled = true;
+        } else {
+          b.addEventListener("click", () => startTrace(target));
+        }
+      }
+      grid.appendChild(b);
+    }
+  }
+  tenBtn.classList.toggle("on", modKind === "ten");
+  maruBtn.classList.toggle("on", modKind === "maru");
+}
+tenBtn.onclick  = () => { SE.tap(); modKind = modKind === "ten"  ? null : "ten";  renderGrid(); };
+maruBtn.onclick = () => { SE.tap(); modKind = modKind === "maru" ? null : "maru"; renderGrid(); };
+renderGrid();
+
+/* ============ ルーレット(濁音・半濁音も出る) ============ */
 const rouChar = document.getElementById("rouletteChar");
 let spinning = false;
 function resetRoulette() {
@@ -441,6 +501,7 @@ let glyphBox = { x: 0, y: 0, w: 1, h: 1 };
 // 骨格解析用データ
 const SR = 200;            // 解析解像度
 let dist = null;           // 距離変換(線の縁からの距離)
+let glyphBoxS = { x: 0, y: 0, w: 1, h: 1 };
 
 function fontSize() { return size * 0.85; }
 
@@ -452,70 +513,329 @@ function setupCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-/* 背景の文字を解析:外接ボックスと距離変換を求める */
-function analyzeGlyph() {
+/* 文字を描いて、アルファ値から「内側」マスクを作る */
+function renderMask(ch) {
   const off = document.createElement("canvas");
   off.width = off.height = SR;
   const o = off.getContext("2d");
   o.fillStyle = "#000"; o.textAlign = "center"; o.textBaseline = "middle";
   o.font = `bold ${SR * 0.85}px ${FONT_FAMILY}`;
-  o.fillText(currentChar, SR / 2, SR * 0.54);
+  o.fillText(ch, SR / 2, SR * 0.54);
   const d = o.getImageData(0, 0, SR, SR).data;
-
-  const inside = new Uint8Array(SR * SR);
+  const m = new Uint8Array(SR * SR);
+  for (let i = 0; i < SR * SR; i++) m[i] = d[i * 4 + 3] > 110 ? 1 : 0;
+  return m;
+}
+function bboxOf(mask) {
   let minX = SR, minY = SR, maxX = -1, maxY = -1;
   for (let y = 0; y < SR; y++) {
     for (let x = 0; x < SR; x++) {
-      if (d[(y * SR + x) * 4 + 3] > 110) {
-        inside[y * SR + x] = 1;
+      if (mask[y * SR + x]) {
         if (x < minX) minX = x; if (x > maxX) maxX = x;
         if (y < minY) minY = y; if (y > maxY) maxY = y;
       }
     }
   }
-  if (maxX < 0) { minX = 20; maxX = SR - 20; minY = 20; maxY = SR - 20; }
-  const k = size / SR;
-  glyphBox = { x: minX * k, y: minY * k, w: (maxX - minX) * k, h: (maxY - minY) * k };
-  glyphBoxS = { x: minX, y: minY, w: maxX - minX, h: maxY - minY }; // 解析座標系
-
-  // 距離変換(チャンファー法・2パス)
+  if (maxX < 0) return { x: 20, y: 20, w: SR - 40, h: SR - 40 };
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+function computeDist(inside) {
   const INF = 1e9;
-  dist = new Float32Array(SR * SR);
-  for (let i = 0; i < SR * SR; i++) dist[i] = inside[i] ? INF : 0;
+  const dd = new Float32Array(SR * SR);
+  for (let i = 0; i < SR * SR; i++) dd[i] = inside[i] ? INF : 0;
   const A = 1, B = 1.4142;
   for (let y = 0; y < SR; y++) {
     for (let x = 0; x < SR; x++) {
-      const i = y * SR + x; if (!dist[i]) continue;
-      let v = dist[i];
-      if (x > 0)            v = Math.min(v, dist[i - 1] + A);
-      if (y > 0)            v = Math.min(v, dist[i - SR] + A);
-      if (x > 0 && y > 0)   v = Math.min(v, dist[i - SR - 1] + B);
-      if (x < SR - 1 && y > 0) v = Math.min(v, dist[i - SR + 1] + B);
-      dist[i] = v;
+      const i = y * SR + x; if (!dd[i]) continue;
+      let v = dd[i];
+      if (x > 0)            v = Math.min(v, dd[i - 1] + A);
+      if (y > 0)            v = Math.min(v, dd[i - SR] + A);
+      if (x > 0 && y > 0)   v = Math.min(v, dd[i - SR - 1] + B);
+      if (x < SR - 1 && y > 0) v = Math.min(v, dd[i - SR + 1] + B);
+      dd[i] = v;
     }
   }
   for (let y = SR - 1; y >= 0; y--) {
     for (let x = SR - 1; x >= 0; x--) {
-      const i = y * SR + x; if (!dist[i]) continue;
-      let v = dist[i];
-      if (x < SR - 1)            v = Math.min(v, dist[i + 1] + A);
-      if (y < SR - 1)            v = Math.min(v, dist[i + SR] + A);
-      if (x < SR - 1 && y < SR - 1) v = Math.min(v, dist[i + SR + 1] + B);
-      if (x > 0 && y < SR - 1)   v = Math.min(v, dist[i + SR - 1] + B);
-      dist[i] = v;
+      const i = y * SR + x; if (!dd[i]) continue;
+      let v = dd[i];
+      if (x < SR - 1)            v = Math.min(v, dd[i + 1] + A);
+      if (y < SR - 1)            v = Math.min(v, dd[i + SR] + A);
+      if (x < SR - 1 && y < SR - 1) v = Math.min(v, dd[i + SR + 1] + B);
+      if (x > 0 && y < SR - 1)   v = Math.min(v, dd[i + SR - 1] + B);
+      dd[i] = v;
     }
   }
+  return dd;
 }
-let glyphBoxS = { x: 0, y: 0, w: 1, h: 1 };
+
+/* 背景の文字を解析:外接ボックスと距離変換を求める
+   濁音・半濁音は「元の文字の領域」を基準に座標変換するため、元の文字のボックスを使う */
+let markInfo = null; // 濁点・半濁点の位置情報(解析座標) { kind, comps:[{cx,cy,w,h}] }
+
+function analyzeGlyph() {
+  const info = DERIVED[currentChar];
+  const fullMask = renderMask(currentChar);
+  let baseBox;
+  markInfo = null;
+
+  if (info) {
+    const baseMask = renderMask(info.base);
+    baseBox = bboxOf(baseMask);
+    markInfo = findMark(fullMask, baseMask, baseBox, info.kind);
+    dist = computeDist(baseMask);
+  } else {
+    baseBox = bboxOf(fullMask);
+    dist = computeDist(fullMask);
+  }
+  glyphBoxS = baseBox;
+  const k = size / SR;
+  glyphBox = { x: baseBox.x * k, y: baseBox.y * k, w: baseBox.w * k, h: baseBox.h * k };
+}
+
+/* 連結成分(8近傍)を求める */
+function labelComponents(mask) {
+  const label = new Int16Array(SR * SR);
+  const comps = [];
+  let id = 0;
+  for (let y = 0; y < SR; y++) {
+    for (let x = 0; x < SR; x++) {
+      const idx = y * SR + x;
+      if (!mask[idx] || label[idx]) continue;
+      id++;
+      const stack = [idx]; label[idx] = id;
+      let sx = 0, sy = 0, n = 0, minX = x, maxX = x, minY = y, maxY = y;
+      while (stack.length) {
+        const cur = stack.pop();
+        const cx = cur % SR, cy = (cur / SR) | 0;
+        sx += cx; sy += cy; n++;
+        if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
+        if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = cx + dx, yy = cy + dy;
+            if (xx < 0 || yy < 0 || xx >= SR || yy >= SR) continue;
+            const ni = yy * SR + xx;
+            if (mask[ni] && !label[ni]) { label[ni] = id; stack.push(ni); }
+          }
+        }
+      }
+      comps.push({ id, cx: sx / n, cy: sy / n, n, minX, maxX, minY, maxY });
+    }
+  }
+  return { label, comps };
+}
+
+/* 濁音・半濁音の「印」を探す(差分+k-means方式)
+   1) 濁音文字のマスクから、元の文字のマスクを差し引く(元の文字は1画素だけ膨らませて輪郭のずれを吸収)
+   2) 残った画素を k-means で分ける(てんてん=2グループ、まる=1グループ)
+   3) 画素が足りない場合は、元の文字の右上の標準位置に置く */
+const DEBUG_MARK = true; // true にすると、検出した濁点の位置を画面に表示する
+let debugPts = [];
+
+/* 濁音・半濁音の「印」を探す(濁音文字自身の連結成分から探す方式)
+   1) 濁音文字を連結成分に分ける
+   2) 最大の成分=本体。それより十分小さく、右上にある成分を印の候補とする
+   3) 候補が2つ以上なら、大きい順に2つ(まるは1つ)
+   4) 候補が1つだけなら、その塊の中だけで k-means(てんてん=2分割)
+   5) 見つからなければ予備位置 */
+function findMark(fullMask, baseMask, baseBox, kind) {
+  const { label, comps } = labelComponents(fullMask);
+  if (!comps.length) return fallbackMark(baseBox, kind);
+
+  // 濁音文字全体の外接ボックスと、最大成分(本体)の面積
+  let gx0 = SR, gy0 = SR, gx1 = -1, gy1 = -1, maxN = 0;
+  comps.forEach(c => {
+    if (c.minX < gx0) gx0 = c.minX; if (c.maxX > gx1) gx1 = c.maxX;
+    if (c.minY < gy0) gy0 = c.minY; if (c.maxY > gy1) gy1 = c.maxY;
+    if (c.n > maxN) maxN = c.n;
+  });
+  const gw = gx1 - gx0, gh = gy1 - gy0;
+
+  // 候補:本体より十分小さく、濁音文字ボックスの右上寄り
+  const cand = comps.filter(c => {
+    const small = c.n < maxN * 0.45 && c.n >= 6;
+    const rightTop = c.cx > gx0 + gw * 0.50 && c.cy < gy0 + gh * 0.50;
+    return small && rightTop;
+  });
+  cand.sort((a, b) => b.n - a.n);
+
+  const need = kind === "ten" ? 2 : 1;
+  let result = null;
+
+  if (cand.length >= need) {
+    // 別々の塊が必要数だけ見つかった
+    result = cand.slice(0, need).map(toMarkComp);
+  } else if (kind === "ten" && cand.length === 1) {
+    // 2点が1つの塊につながっている → その塊の画素だけを k-means で2分割
+    const pts = [];
+    const c = cand[0];
+    for (let y = c.minY; y <= c.maxY; y++) {
+      for (let x = c.minX; x <= c.maxX; x++) {
+        if (label[y * SR + x] === c.id) pts.push({ x, y });
+      }
+    }
+    result = kmeans(pts, 2);
+  }
+
+  if (result) {
+    debugPts = result.map(r => ({ x: r.cx, y: r.cy }));
+    return { kind, comps: result };
+  }
+  debugPts = [];
+  return fallbackMark(baseBox, kind);
+}
+
+// マスクを r 画素だけ膨らませる
+function growMask(mask, r) {
+  const out = new Uint8Array(SR * SR);
+  for (let y = 0; y < SR; y++) {
+    for (let x = 0; x < SR; x++) {
+      if (!mask[y * SR + x]) continue;
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const xx = x + dx, yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < SR && yy < SR) out[yy * SR + xx] = 1;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+// k-means(k=1 or 2)。戻り値: [{cx, cy, w, h}]
+function kmeans(pts, k) {
+  const boxOf = g => {
+    let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+    g.forEach(p => { if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x; if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y; });
+    return { w: Math.max(4, x1 - x0 + 1), h: Math.max(4, y1 - y0 + 1) };
+  };
+  const centroid = g => ({
+    x: g.reduce((s, p) => s + p.x, 0) / g.length,
+    y: g.reduce((s, p) => s + p.y, 0) / g.length
+  });
+
+  if (k === 1) {
+    const c = centroid(pts), b = boxOf(pts);
+    return [{ cx: c.x, cy: c.y, w: b.w, h: b.h }];
+  }
+
+  // 初期中心:重心から最も遠い点 a と、a から最も遠い点 b
+  const m = centroid(pts);
+  let a = pts[0], far = -1;
+  pts.forEach(p => { const d = (p.x - m.x) ** 2 + (p.y - m.y) ** 2; if (d > far) { far = d; a = p; } });
+  let b = pts[0]; far = -1;
+  pts.forEach(p => { const d = (p.x - a.x) ** 2 + (p.y - a.y) ** 2; if (d > far) { far = d; b = p; } });
+
+  let c1 = { x: a.x, y: a.y }, c2 = { x: b.x, y: b.y };
+  let g1 = [], g2 = [];
+  for (let it = 0; it < 20; it++) {
+    g1 = []; g2 = [];
+    pts.forEach(p => {
+      const d1 = (p.x - c1.x) ** 2 + (p.y - c1.y) ** 2;
+      const d2 = (p.x - c2.x) ** 2 + (p.y - c2.y) ** 2;
+      (d1 <= d2 ? g1 : g2).push(p);
+    });
+    if (!g1.length || !g2.length) return null;
+    const n1 = centroid(g1), n2 = centroid(g2);
+    const moved = Math.abs(n1.x - c1.x) + Math.abs(n1.y - c1.y) + Math.abs(n2.x - c2.x) + Math.abs(n2.y - c2.y);
+    c1 = n1; c2 = n2;
+    if (moved < 0.01) break;
+  }
+  // 2グループが近すぎる場合(1つの点を割ってしまった場合)は失敗とする
+  const b1 = boxOf(g1), b2 = boxOf(g2);
+  const dist12 = Math.hypot(c1.x - c2.x, c1.y - c2.y);
+  if (dist12 < Math.max(b1.w, b1.h, b2.w, b2.h) * 0.8) return null;
+  return [
+    { cx: c1.x, cy: c1.y, w: b1.w, h: b1.h },
+    { cx: c2.x, cy: c2.y, w: b2.w, h: b2.h }
+  ];
+}
+
+function toMarkComp(c) {
+  return { cx: c.cx, cy: c.cy, w: c.maxX - c.minX, h: c.maxY - c.minY };
+}
+// 横長の塊を、左右2つの点に分ける
+function splitTwo(c) {
+  const w = c.maxX - c.minX, h = c.maxY - c.minY;
+  return [
+    { cx: c.minX + w * 0.28, cy: c.cy, w: w * 0.4, h: h },
+    { cx: c.minX + w * 0.72, cy: c.cy, w: w * 0.4, h: h }
+  ];
+}
+// 予備位置:元の文字の外接ボックスの右上外側
+function fallbackMark(box, kind) {
+  const r = box.w * 0.075;                       // 点の半径の目安
+  const baseX = box.x + box.w * 0.93;            // 右上の基準位置
+  const baseY = box.y + box.h * 0.08;
+  if (kind === "maru") {
+    return { kind, comps: [{ cx: baseX, cy: baseY, w: r * 2.2, h: r * 2.2 }] };
+  }
+  return {
+    kind,
+    comps: [
+      { cx: baseX - r * 1.4, cy: baseY, w: r * 1.6, h: r * 1.6 },
+      { cx: baseX + r * 1.4, cy: baseY, w: r * 1.6, h: r * 1.6 }
+    ]
+  };
+}
+function dilate(mask, r) {
+  const out = new Uint8Array(SR * SR);
+  for (let y = 0; y < SR; y++) {
+    for (let x = 0; x < SR; x++) {
+      if (!mask[y * SR + x]) continue;
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const xx = x + dx, yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < SR && yy < SR) out[yy * SR + xx] = 1;
+        }
+      }
+    }
+  }
+  return out;
+}
+// 印の画素集合を、連結成分ごとに分けて、てんてん(2個)/まる(1個)の経路にする
+function extractMark(markMask, kind) {
+  const label = new Int16Array(SR * SR);
+  const comps = [];
+  let id = 0;
+  for (let y = 0; y < SR; y++) {
+    for (let x = 0; x < SR; x++) {
+      const idx = y * SR + x;
+      if (!markMask[idx] || label[idx]) continue;
+      id++;
+      const stack = [idx]; label[idx] = id;
+      let sx = 0, sy = 0, n = 0, minX = x, maxX = x, minY = y, maxY = y;
+      while (stack.length) {
+        const cur = stack.pop();
+        const cx = cur % SR, cy = (cur / SR) | 0;
+        sx += cx; sy += cy; n++;
+        if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
+        if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = cx + dx, yy = cy + dy;
+            if (xx < 0 || yy < 0 || xx >= SR || yy >= SR) continue;
+            const ni = yy * SR + xx;
+            if (markMask[ni] && !label[ni]) { label[ni] = id; stack.push(ni); }
+          }
+        }
+      }
+      if (n >= 6) comps.push({ cx: sx / n, cy: sy / n, n, minX, maxX, minY, maxY });
+    }
+  }
+  // 大きい順に最大2つ(てんてん)または1つ(まる)を採用
+  comps.sort((a, b) => b.n - a.n);
+  const use = comps.slice(0, kind === "ten" ? 2 : 1);
+  return { kind, comps: use };
+}
 
 // 0〜100 → 解析座標(SR系)
 function toSR(p) {
   return { x: glyphBoxS.x + p[0] / 100 * glyphBoxS.w, y: glyphBoxS.y + p[1] / 100 * glyphBoxS.h };
 }
-// 解析座標 → キャンバス座標
 function srToCanvas(p) { const k = size / SR; return { x: p.x * k, y: p.y * k }; }
 
-/* 点を文字の線の中心に吸着:範囲内で「線の内側かつ中心に近い点」を探す */
 function snap(p) {
   const range = Math.max(6, Math.round(SNAP_RANGE * Math.max(glyphBoxS.w, glyphBoxS.h)));
   const cx = Math.round(p.x), cy = Math.round(p.y);
@@ -528,21 +848,13 @@ function snap(p) {
       if (v <= 0) continue;
       const dd = Math.hypot(dx, dy);
       if (dd > range) continue;
-      // 中心度(距離値が大きいほど良い)と、元の位置への近さの両方を評価
       const score = v * 2.2 - dd;
       if (score > bestScore) { bestScore = score; best = { x, y }; }
     }
   }
   return best || p;
 }
-// 端点(スタート・ゴール)は、線の端に寄せたいので吸着後に元の方向へ少し戻す
-function snapEnd(p, towards) {
-  const s = snap(p);
-  // 骨格の端は線の中心なので、そのまま使う(文字の太さ分だけ内側に入る)
-  return s;
-}
 
-/* 2点間を、文字の内側(距離値が高い所)を通る経路でつなぐ */
 function connect(a, b) {
   const n = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 3));
   const pts = [];
@@ -553,7 +865,6 @@ function connect(a, b) {
   }
   return pts;
 }
-// 直線上の点を、近傍の局所的な骨格に少しだけ寄せる
 function refine(p) {
   const r = 4;
   const cx = Math.round(p.x), cy = Math.round(p.y);
@@ -571,25 +882,55 @@ function refine(p) {
 
 function buildStrokes() {
   analyzeGlyph();
-  const def = STROKES[currentChar] || [];
-  strokes = def.map(s => {
-    // 1) 制御点を骨格に吸着
+  const baseChar = DERIVED[currentChar] ? DERIVED[currentChar].base : currentChar;
+  const def = STROKES[baseChar] || [];
+  const paths = def.map(s => {
     const snapped = s.map(p => snap(toSR(p)));
-    // 2) 隣り合う点を骨格に沿ってつなぐ
     let path = [];
     for (let i = 0; i < snapped.length - 1; i++) {
       const seg = connect(snapped[i], snapped[i + 1]);
       path = path.concat(i === 0 ? seg : seg.slice(1));
     }
-    // 3) 簡易スムージング(ガタつき除去)
-    path = smooth(path);
-    return path.map(srToCanvas);
+    return smooth(path);
   });
+
+  // 濁点・半濁点の画を追加(元の文字を書き終えた後に書く)
+  // 濁点・半濁点の画を追加(元の文字を書き終えた後に書く)
+  if (markInfo) {
+    const k = markInfo.kind;
+    // 上にある点から、同じ高さなら右の点から
+    const comps = markInfo.comps.slice().sort((a, b) => (a.cy - b.cy) || (b.cx - a.cx));
+    comps.forEach(c => {
+      if (k === "ten") {
+        // 点:左上→右下の短い斜め線
+        const a = { x: c.cx - c.w * 0.28, y: c.cy - c.h * 0.28 };
+        const b = { x: c.cx + c.w * 0.28, y: c.cy + c.h * 0.28 };
+        paths.push(connectStraight(a, b));
+      } else {
+        // 丸:上から時計回りに一周
+        const rx = c.w / 2 * 0.8, ry = c.h / 2 * 0.8;
+        const loop = [];
+        const N = 24;
+        for (let i = 0; i <= N; i++) {
+          const ang = -Math.PI / 2 + (i / N) * Math.PI * 2;
+          loop.push({ x: c.cx + Math.cos(ang) * rx, y: c.cy + Math.sin(ang) * ry });
+        }
+        paths.push(loop);
+      }
+    });
+  }
+
+  strokes = paths.map(p => p.map(srToCanvas));
   strokeLens = strokes.map(s => {
     const acc = [0];
     for (let i = 1; i < s.length; i++) acc.push(acc[i - 1] + Math.hypot(s[i].x - s[i - 1].x, s[i].y - s[i - 1].y));
     return acc;
   });
+}
+function connectStraight(a, b) {
+  const n = 6, pts = [];
+  for (let i = 0; i <= n; i++) pts.push({ x: a.x + (b.x - a.x) * i / n, y: a.y + (b.y - a.y) * i / n });
+  return pts;
 }
 function smooth(path) {
   if (path.length < 5) return path;
@@ -638,6 +979,15 @@ function redraw() {
     if (line.length === 1) ctx.lineTo(line[0].x + 0.1, line[0].y);
     ctx.stroke();
   });
+
+  // デバッグ:検出した濁点の位置(DEBUG_MARK を true にしたときのみ)
+  if (DEBUG_MARK && debugPts.length) {
+    ctx.fillStyle = "rgba(0,0,255,0.7)";
+    debugPts.forEach(p => {
+      const q = srToCanvas(p);
+      ctx.beginPath(); ctx.arc(q.x, q.y, size * 0.015, 0, Math.PI * 2); ctx.fill();
+    });
+  }
 
   if (cleared || curStroke >= strokes.length) return;
   const cur = strokes[curStroke];
@@ -715,6 +1065,7 @@ function advance(q) {
 
   const goal = strokes[i][strokes[i].length - 1];
   const dGoal = Math.hypot(q.x - goal.x, q.y - goal.y);
+  // 丸(ループ)は始点とゴールが同じ位置のため、十分に一周してから判定
   if (dGoal <= GOAL_R * size && progressLen >= strokeTotal(i) * PASS_FRAC) finishStroke();
 }
 function finishStroke() {

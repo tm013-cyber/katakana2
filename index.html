@@ -19,8 +19,8 @@
 
   #warn { display: none; background: #ffebee; color: #c62828; font-size: 14px; padding: 6px 10px; text-align: center; }
 
-  #menu { display: none; flex-direction: column; align-items: center; justify-content: center; gap: 28px; }
-  #menu.show { display: flex; }
+  #home, #menu { display: none; flex-direction: column; align-items: center; justify-content: center; gap: 28px; }
+  #home.show, #menu.show { display: flex; }
   .bigbtn { width: min(80vw, 520px); padding: 36px 20px; font-size: 40px; border-radius: 28px; border: none; color: #fff; font-weight: bold; box-shadow: 0 8px 0 rgba(0,0,0,0.2); cursor: pointer; }
   .bigbtn:active { transform: translateY(5px); box-shadow: 0 3px 0 rgba(0,0,0,0.2); }
 
@@ -79,15 +79,73 @@
   @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
   .confetti { position: absolute; top: -20px; width: 14px; height: 14px; animation: fall linear forwards; z-index: 5; pointer-events: none; }
   @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+
+  /* ============ 新ゲーム:くさむら ことばならべ ============ */
+  #field { position: relative; overflow: hidden; background: linear-gradient(#bfe9ff 0%, #e8f8ff 38%, #9ad86a 38%, #6fbf4a 100%); }
+  #field .topbar { position: absolute; left: 8px; top: 8px; z-index: 30; display: flex; gap: 10px; }
+  #fieldTitle { position: absolute; top: 10px; left: 0; right: 0; text-align: center; font-size: 28px; font-weight: bold; color: #2e7d32; text-shadow: 0 2px 0 #fff; pointer-events: none; z-index: 20; }
+  #sun { position: absolute; right: 6%; top: 6%; width: 70px; height: 70px; border-radius: 50%; background: #ffe082; box-shadow: 0 0 30px #ffd54f; }
+  #bushArea { position: absolute; left: 0; right: 0; top: 28%; bottom: 8%; }
+  .bushWrap { position: absolute; transform: translate(-50%, -50%); width: min(27vw, 35vh); cursor: pointer; }
+  .bushWrap .peek { position: absolute; left: 50%; bottom: 52%; width: 70%; transform: translateX(-50%); display: flex; align-items: flex-start; justify-content: center; overflow: hidden; aspect-ratio: 1/0.4; z-index: 1; }
+  .bushWrap .peek img { width: 100%; height: auto; object-fit: contain; object-position: top; border-radius: 12px; }
+  .bushWrap .peek .emo { font-size: min(10vw, 12vh); line-height: 1; }
+  .bushWrap .bush { position: relative; width: 100%; aspect-ratio: 1.3/1; z-index: 2; }
+  .bushWrap.sway { animation: sway 3.2s ease-in-out infinite; }
+  .bushWrap.rustle { animation: rustle .5s; }
+  @keyframes sway { 0%,100% { transform: translate(-50%,-50%) rotate(-1.5deg); } 50% { transform: translate(-50%,-50%) rotate(1.5deg); } }
+  @keyframes rustle { 0%,100% { transform: translate(-50%,-50%) scale(1); } 25% { transform: translate(-52%,-50%) scale(1.06) rotate(-4deg); } 75% { transform: translate(-48%,-50%) scale(1.06) rotate(4deg); } }
+  .bushWrap svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 4px 0 rgba(0,0,0,0.15)); }
+
+  #play { position: relative; background: linear-gradient(#e8f8ff 0%, #c9efb0 60%, #8fd05f 100%); overflow: hidden; }
+  #play .topbar { position: absolute; left: 8px; top: 8px; z-index: 40; display: flex; gap: 10px; }
+  #targetImg { position: absolute; left: 50%; top: 9%; transform: translateX(-50%); width: min(34vh, 52vw); height: min(34vh, 52vw); display: flex; align-items: center; justify-content: center; font-size: min(20vh, 30vw); z-index: 5; }
+  #targetImg img { width: 100%; height: 100%; object-fit: contain; border-radius: 18px; background: rgba(255,255,255,0.75); box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
+  #targetImg.enter { animation: pop .7s cubic-bezier(.2,1.6,.4,1); }
+  #slots { position: absolute; left: 0; right: 0; top: calc(9% + min(34vh, 52vw) + 14px); display: flex; justify-content: center; gap: 12px; z-index: 5; }
+  .slot { width: min(15vw, 13vh); height: min(15vw, 13vh); border: 4px dashed #8d6e63; border-radius: 16px; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; font-size: min(9vw, 8vh); font-weight: bold; color: #d84315; }
+  .slot.hot { background: #fff9c4; border-color: #ff7043; transform: scale(1.08); }
+  .slot.filled { border-style: solid; border-color: #43a047; background: #e8f5e9; }
+  #tiles { position: absolute; left: 0; right: 0; bottom: 0; height: 26%; z-index: 6; }
+  .tile { position: absolute; width: min(15vw, 13vh); height: min(15vw, 13vh); border-radius: 16px; background: #ffb74d; color: #fff; display: flex; align-items: center; justify-content: center; font-size: min(9vw, 8vh); font-weight: bold; box-shadow: 0 6px 0 rgba(0,0,0,0.22); touch-action: none; cursor: grab; z-index: 8; transition: left .25s, top .25s; }
+  .tile.drag { transition: none; z-index: 50; transform: scale(1.12); box-shadow: 0 12px 18px rgba(0,0,0,0.3); cursor: grabbing; }
+  .tile.placed { background: #66bb6a; box-shadow: 0 3px 0 rgba(0,0,0,0.2); }
+  .tile.back { animation: nope .35s; }
+  @keyframes nope { 25% { margin-left: -8px; } 75% { margin-left: 8px; } }
+  .tcol0 { background: #ef5350; } .tcol1 { background: #ff7043; } .tcol2 { background: #fbc02d; }
+  .tcol3 { background: #66bb6a; } .tcol4 { background: #42a5f5; } .tcol5 { background: #ab47bc; }
+
+  /* ボール演出 */
+  #ball { position: absolute; width: min(18vh, 26vw); height: min(18vh, 26vw); z-index: 60; display: none; pointer-events: none; }
+  #ball .half { position: absolute; left: 0; width: 100%; height: 50%; }
+  #ball .t { top: 0; background: #ef5350; border-radius: 999px 999px 0 0; box-shadow: inset -6px -4px 0 rgba(0,0,0,0.14); }
+  #ball .b { bottom: 0; background: #fafafa; border-radius: 0 0 999px 999px; box-shadow: inset -6px 6px 0 rgba(0,0,0,0.1); }
+  #ball .mid { position: absolute; left: 0; right: 0; top: 46%; height: 8%; background: #424242; }
+  #ball .btn2 { position: absolute; left: 50%; top: 50%; width: 22%; aspect-ratio: 1/1; transform: translate(-50%,-50%); border-radius: 50%; background: #fff; border: 3px solid #424242; }
+  #ball .shine { position: absolute; left: 16%; top: 12%; width: 22%; height: 12%; background: rgba(255,255,255,0.75); border-radius: 50%; transform: rotate(-30deg); }
+  #ball.open .t { transform: translateY(-40%) rotate(-18deg); transform-origin: left bottom; transition: transform .35s; }
+  #ball.open .b { transform: translateY(20%); transition: transform .35s; }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 70; }
+  #catchText { position: absolute; left: 0; right: 0; top: 46%; text-align: center; font-size: min(9vw, 9vh); font-weight: bold; color: #d84315; text-shadow: 0 4px 0 #fff, 0 0 20px #fff; z-index: 80; display: none; }
+  #catchText.show { display: block; animation: pop .6s cubic-bezier(.2,1.6,.4,1); }
+  #playNext { position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%); z-index: 90; display: none; }
 </style>
 </head>
 <body>
 <header id="title">カタカナ れんしゅう</header>
 <div id="warn"></div>
 
-<section id="menu" class="screen show">
+<!-- ゲーム選択(最初の画面) -->
+<section id="home" class="screen show">
+  <button class="bigbtn" style="background:#ff7043" id="gameTrace">✏️ なぞりがき</button>
+  <button class="bigbtn" style="background:#43a047" id="gameBush">🌿 くさむら ことばならべ</button>
+</section>
+
+<!-- なぞりがき:練習方法の選択 -->
+<section id="menu" class="screen">
   <button class="bigbtn" style="background:#42a5f5" id="modeSelect">📖 えらんで れんしゅう</button>
   <button class="bigbtn" style="background:#ef5350" id="modeRoulette">🎲 ルーレット</button>
+  <button class="btn gray" id="menuBack">← ゲームえらびへ</button>
 </section>
 
 <section id="select" class="screen">
@@ -129,6 +187,32 @@
     <div id="rewardText"></div>
     <button class="btn" id="againBtn">つぎへ</button>
   </div>
+</section>
+
+<!-- 新ゲーム:くさむら -->
+<section id="field" class="screen">
+  <div class="topbar"><button class="btn gray" id="fieldBack">← もどる</button></div>
+  <div id="fieldTitle">どれを つかまえる?</div>
+  <div id="sun"></div>
+  <div id="bushArea"></div>
+</section>
+
+<!-- 新ゲーム:ならべる画面 -->
+<section id="play" class="screen">
+  <div class="topbar">
+    <button class="btn gray" id="playBack">← くさむらへ</button>
+    <button class="btn orange" id="playHear">🔊 きく</button>
+  </div>
+  <div id="targetImg"></div>
+  <div id="slots"></div>
+  <div id="tiles"></div>
+  <div id="ball">
+    <div class="half t"></div><div class="half b"></div><div class="mid"></div>
+    <div class="btn2"></div><div class="shine"></div>
+  </div>
+  <div id="flash"></div>
+  <div id="catchText"></div>
+  <button class="btn" id="playNext">つぎのくさむらへ</button>
 </section>
 
 <script>
@@ -183,6 +267,7 @@ const DEFAULT_REWARDS = [
 
 let WORDS = {};
 const imgCache = {};
+let wordsReady = null; // words.txt の読み込み完了待ち用 Promise
 
 function parseWords(txt) {
   txt.replace(/^\uFEFF/, "").split(/\r?\n/).forEach(line => {
@@ -357,7 +442,14 @@ const SE = {
   tap()    { tone(660, 0, 0.08, "sine", 0.12); },
   tick()   { tone(900, 0, 0.05, "square", 0.1); },
   strokeDone() { tone(660, 0, 0.12, "triangle", 0.25); tone(880, 0.1, 0.18, "triangle", 0.25); },
-  nope()   { tone(200, 0, 0.12, "square", 0.08); }
+  nope()   { tone(200, 0, 0.12, "square", 0.08); },
+  // 新ゲーム用
+  rustle() { for (let i = 0; i < 5; i++) tone(500 + Math.random() * 600, i * 0.045, 0.05, "sawtooth", 0.05); },
+  whoosh() { tone(900, 0, 0.45, "sine", 0.18, 200); },
+  suck()   { tone(200, 0, 0.5, "sine", 0.22, 1100); },
+  clunk()  { tone(160, 0, 0.14, "square", 0.22, 90); },
+  click()  { tone(1200, 0, 0.05, "square", 0.18); tone(800, 0.06, 0.07, "square", 0.14); },
+  drop()   { tone(520, 0, 0.1, "triangle", 0.22); tone(780, 0.08, 0.14, "triangle", 0.22); }
 };
 let rollTimer = null;
 
@@ -409,6 +501,11 @@ function show(id) {
   document.getElementById(id).classList.add("show");
 }
 let mode = "select";
+
+// ゲーム選択
+document.getElementById("gameTrace").onclick = () => { SE.tap(); show("menu"); };
+document.getElementById("gameBush").onclick  = () => { SE.tap(); startBushGame(); };
+document.getElementById("menuBack").onclick  = () => { SE.tap(); show("home"); };
 
 document.getElementById("modeSelect").onclick = () => { SE.tap(); mode = "select"; show("select"); };
 document.getElementById("modeRoulette").onclick = () => { SE.tap(); mode = "roulette"; show("roulette"); resetRoulette(); };
@@ -637,10 +734,6 @@ function labelComponents(mask) {
   return { label, comps };
 }
 
-/* 濁音・半濁音の「印」を探す(差分+k-means方式)
-   1) 濁音文字のマスクから、元の文字のマスクを差し引く(元の文字は1画素だけ膨らませて輪郭のずれを吸収)
-   2) 残った画素を k-means で分ける(てんてん=2グループ、まる=1グループ)
-   3) 画素が足りない場合は、元の文字の右上の標準位置に置く */
 const DEBUG_MARK = false; // true にすると、検出した濁点の位置を画面に表示する
 let debugPts = [];
 
@@ -838,14 +931,6 @@ function kmeans(pts, k) {
 function toMarkComp(c) {
   return { cx: c.cx, cy: c.cy, w: c.maxX - c.minX, h: c.maxY - c.minY };
 }
-// 横長の塊を、左右2つの点に分ける
-function splitTwo(c) {
-  const w = c.maxX - c.minX, h = c.maxY - c.minY;
-  return [
-    { cx: c.minX + w * 0.28, cy: c.cy, w: w * 0.4, h: h },
-    { cx: c.minX + w * 0.72, cy: c.cy, w: w * 0.4, h: h }
-  ];
-}
 // 予備位置:元の文字の外接ボックスの右上外側
 function fallbackMark(box, kind) {
   const r = box.w * 0.075;                       // 点の半径の目安
@@ -861,56 +946,6 @@ function fallbackMark(box, kind) {
       { cx: baseX + r * 1.4, cy: baseY, w: r * 1.6, h: r * 1.6 }
     ]
   };
-}
-function dilate(mask, r) {
-  const out = new Uint8Array(SR * SR);
-  for (let y = 0; y < SR; y++) {
-    for (let x = 0; x < SR; x++) {
-      if (!mask[y * SR + x]) continue;
-      for (let dy = -r; dy <= r; dy++) {
-        for (let dx = -r; dx <= r; dx++) {
-          const xx = x + dx, yy = y + dy;
-          if (xx >= 0 && yy >= 0 && xx < SR && yy < SR) out[yy * SR + xx] = 1;
-        }
-      }
-    }
-  }
-  return out;
-}
-// 印の画素集合を、連結成分ごとに分けて、てんてん(2個)/まる(1個)の経路にする
-function extractMark(markMask, kind) {
-  const label = new Int16Array(SR * SR);
-  const comps = [];
-  let id = 0;
-  for (let y = 0; y < SR; y++) {
-    for (let x = 0; x < SR; x++) {
-      const idx = y * SR + x;
-      if (!markMask[idx] || label[idx]) continue;
-      id++;
-      const stack = [idx]; label[idx] = id;
-      let sx = 0, sy = 0, n = 0, minX = x, maxX = x, minY = y, maxY = y;
-      while (stack.length) {
-        const cur = stack.pop();
-        const cx = cur % SR, cy = (cur / SR) | 0;
-        sx += cx; sy += cy; n++;
-        if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
-        if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const xx = cx + dx, yy = cy + dy;
-            if (xx < 0 || yy < 0 || xx >= SR || yy >= SR) continue;
-            const ni = yy * SR + xx;
-            if (markMask[ni] && !label[ni]) { label[ni] = id; stack.push(ni); }
-          }
-        }
-      }
-      if (n >= 6) comps.push({ cx: sx / n, cy: sy / n, n, minX, maxX, minY, maxY });
-    }
-  }
-  // 大きい順に最大2つ(てんてん)または1つ(まる)を採用
-  comps.sort((a, b) => b.n - a.n);
-  const use = comps.slice(0, kind === "ten" ? 2 : 1);
-  return { kind, comps: use };
 }
 
 // 0〜100 → 解析座標(SR系)
@@ -977,7 +1012,6 @@ function buildStrokes() {
     return smooth(path);
   });
 
-  // 濁点・半濁点の画を追加(元の文字を書き終えた後に書く)
   // 濁点・半濁点の画を追加(元の文字を書き終えた後に書く)
   if (markInfo) {
     const k = markInfo.kind;
@@ -1285,7 +1319,500 @@ function confetti() {
   }
 }
 
-loadWords();
+/* ================================================================
+   新ゲーム:くさむら ことばならべ
+   ================================================================ */
+/* ---- ラグなしの発音(タイル用) ----
+   文字ごとの発話オブジェクトを事前に作って使い回し、タッチした瞬間に speak する */
+const tileUtter = {};
+function getTileUtter(ch) {
+  if (!tileUtter[ch]) {
+    const u = new SpeechSynthesisUtterance(ch);
+    u.lang = "ja-JP"; u.rate = 0.95; u.pitch = 1.2; u.volume = 1;
+    if (jaVoice) u.voice = jaVoice;
+    tileUtter[ch] = u;
+  }
+  return tileUtter[ch];
+}
+// 即座に発音(待ちなし)。直前の発話は打ち切って、この文字を優先する
+function sayNow(ch) {
+  if (!ch || !("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(getTileUtter(ch));
+}
+// ドラッグ中の発音用:読み上げ中は重ねない
+function sayLoop(ch) {
+  if (!ch || !("speechSynthesis" in window)) return;
+  if (speechSynthesis.speaking) return;
+  speechSynthesis.speak(getTileUtter(ch));
+}
+// 音声エンジンを温める(無音で一度発話させ、各文字の発話オブジェクトも用意する)
+function warmUpSpeech(chars) {
+  if (!("speechSynthesis" in window)) return;
+  const u = new SpeechSynthesisUtterance(" ");
+  u.volume = 0; u.lang = "ja-JP";
+  speechSynthesis.speak(u);
+  chars.forEach(c => getTileUtter(c));
+}
+
+const BUSH_COUNT = 5;
+const TILE_SAY_INTERVAL = 700;   // ドラッグ中の発音間隔(ミリ秒)
+
+const fieldEl   = document.getElementById("field");
+const bushArea  = document.getElementById("bushArea");
+const playEl    = document.getElementById("play");
+const targetImg = document.getElementById("targetImg");
+const slotsEl   = document.getElementById("slots");
+const tilesEl   = document.getElementById("tiles");
+const ballEl    = document.getElementById("ball");
+const flashEl   = document.getElementById("flash");
+const catchText = document.getElementById("catchText");
+const playNext  = document.getElementById("playNext");
+
+let bushPool = [];        // 出題候補 [{ word, img, key, ch }]
+let bushItems = [];       // 現在の草に隠れている出題
+let usedKeys = new Set(); // 今までに出した key(重複を減らす)
+let cur = null;           // 現在の出題 { word, img, chars[] }
+let slotState = [];       // 各枠に入っているタイル id (null なら空)
+let tileEls = [];
+let solved = false;
+let dragSayTimer = null;
+
+/* 草の SVG(草むら) */
+function bushSVG(seed) {
+  const greens = ["#3f9b3a", "#4caf50", "#2e7d32", "#66bb6a"];
+  const blades = [];
+  const n = 13;
+  for (let i = 0; i < n; i++) {
+    const x = 8 + (i / (n - 1)) * 84 + ((seed * 7 + i * 13) % 5 - 2);
+    const h = 38 + ((seed * 11 + i * 17) % 22);
+    const lean = ((seed * 5 + i * 9) % 17) - 8;
+    const col = greens[(i + seed) % greens.length];
+    blades.push(`<path d="M${x - 6},100 Q${x + lean * 0.4},${100 - h * 0.6} ${x + lean},${100 - h} Q${x + 3 + lean * 0.4},${100 - h * 0.55} ${x + 6},100 Z" fill="${col}" stroke="#1b5e20" stroke-width="0.8"/>`);
+  }
+  return `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMax meet">
+    <ellipse cx="50" cy="96" rx="46" ry="7" fill="rgba(0,0,0,0.12)"/>
+    ${blades.join("")}
+  </svg>`;
+}
+
+/* 出題候補を集める:画像と言葉の両方がある報酬だけ */
+async function buildBushPool() {
+  if (wordsReady) await wordsReady;
+  const pool = [];
+  const chars = Object.keys(ROMA);
+  for (const ch of chars) {
+    const roma = ROMA[ch];
+    for (let n = 1; n <= MAX_PER_CHAR; n++) {
+      const key = `${roma}_${n}`;
+      const word = WORDS[key];
+      if (!word) continue;
+      const img = await findImage(key);
+      if (!img) continue;
+      pool.push({ key, word, img, ch });
+    }
+  }
+  return pool;
+}
+
+/* 草むら画面を開く */
+async function startBushGame() {
+  show("field");
+  document.getElementById("fieldTitle").textContent = "よみこみちゅう…";
+  bushArea.innerHTML = "";
+  bushPool = await buildBushPool();
+  if (!bushPool.length) {
+    document.getElementById("fieldTitle").textContent = "がぞうと ことばが ありません";
+    return;
+  }
+  setupBushes();
+}
+
+/* 草を5個配置して、後ろに画像を仕込む */
+function setupBushes() {
+  document.getElementById("fieldTitle").textContent = "どれを つかまえる?";
+  bushArea.innerHTML = "";
+
+  // 未使用を優先してランダムに選ぶ(足りなければ全体から補う)
+  let cand = bushPool.filter(p => !usedKeys.has(p.key));
+  if (cand.length < Math.min(BUSH_COUNT, bushPool.length)) { usedKeys.clear(); cand = bushPool.slice(); }
+  shuffle(cand);
+  bushItems = cand.slice(0, Math.min(BUSH_COUNT, cand.length));
+
+  // 5個の配置(2段:上3・下2 のゆるい千鳥)
+  const layouts = {
+    5: [[17,30],[50,20],[83,30],[32,72],[68,72]],
+    4: [[22,32],[62,22],[38,72],[78,66]],
+    3: [[22,38],[58,24],[72,68]],
+    2: [[30,45],[70,45]],
+    1: [[50,50]]
+  };
+  const pts = layouts[bushItems.length] || layouts[5];
+
+  bushItems.forEach((it, i) => {
+    const wrap = document.createElement("div");
+    wrap.className = "bushWrap sway";
+    wrap.style.left = pts[i][0] + "%";
+    wrap.style.top  = pts[i][1] + "%";
+    wrap.style.animationDelay = (i * 0.4) + "s";
+
+    const peek = document.createElement("div");
+    peek.className = "peek";
+    const im = new Image();
+    im.src = it.img;
+    peek.appendChild(im);
+
+    const bush = document.createElement("div");
+    bush.className = "bush";
+    bush.innerHTML = bushSVG(i + 1);
+
+    wrap.appendChild(peek);
+    wrap.appendChild(bush);
+    wrap.addEventListener("click", () => chooseBush(i, wrap));
+    bushArea.appendChild(wrap);
+  });
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* 草をタッチ */
+function chooseBush(i, wrap) {
+  unlockSpeech();
+  SE.rustle();
+  wrap.classList.remove("sway");
+  wrap.classList.add("rustle");
+  const it = bushItems[i];
+  setTimeout(() => startPlay(it), 520);
+}
+
+/* ならべる画面 */
+function startPlay(it) {
+  usedKeys.add(it.key);
+  cur = { word: it.word, img: it.img, chars: Array.from(it.word) };
+  solved = false;
+  show("play");
+  resetBallUI();
+  // 前の出題で playEl 直下に移っていたタイルが残らないよう、すべて削除
+  Array.from(playEl.querySelectorAll(".tile")).forEach(el => el.remove());
+  clearInterval(dragSayTimer); dragSayTimer = null;
+
+  // 画像
+  targetImg.innerHTML = "";
+  const im = new Image();
+  im.src = it.img;
+  targetImg.appendChild(im);
+  targetImg.classList.remove("enter"); void targetImg.offsetWidth; targetImg.classList.add("enter");
+  targetImg.style.opacity = 1;
+  targetImg.style.transform = "translateX(-50%)";
+
+  // 四角枠
+  slotsEl.innerHTML = "";
+  slotState = new Array(cur.chars.length).fill(null);
+  cur.chars.forEach((_, k) => {
+    const s = document.createElement("div");
+    s.className = "slot";
+    s.dataset.index = k;
+    slotsEl.appendChild(s);
+  });
+
+  // タイル(順番も配置もバラバラ)
+  buildTiles();
+
+  playNext.style.display = "none";
+  catchText.classList.remove("show");
+  catchText.style.display = "none";
+  warmUpSpeech(cur.chars);
+  speak(cur.word, 500);
+}
+
+function buildTiles() {
+  Array.from(playEl.querySelectorAll(".tile")).forEach(el => el.remove());
+  tilesEl.innerHTML = "";
+  tileEls = [];
+  const n = cur.chars.length;
+  // 並べ替え:正解の並びと同じにならないようシャッフル
+  let order = cur.chars.map((_, i) => i);
+  let tries = 0;
+  do { shuffle(order); tries++; }
+  while (tries < 20 && n > 1 && order.every((v, i) => cur.chars[v] === cur.chars[i]));
+
+  const areaW = tilesEl.clientWidth || window.innerWidth;
+  const areaH = tilesEl.clientHeight || window.innerHeight * 0.26;
+  const tw = Math.min(window.innerWidth * 0.15, window.innerHeight * 0.13);
+
+  order.forEach((idx, k) => {
+    const t = document.createElement("div");
+    t.className = "tile tcol" + (k % 6);
+    t.textContent = cur.chars[idx];
+    t.dataset.id = idx;            // 正解上の位置(同じ文字でも区別)
+    // 配置:横に等間隔+少しランダムに上下
+    const gap = (areaW - tw * n) / (n + 1);
+    const x = gap + k * (tw + gap);
+    const y = Math.random() * Math.max(0, areaH - tw - 10) + 4;
+    t.style.left = x + "px";
+    t.style.top  = y + "px";
+    t._home = { x, y };
+    t._slot = null;
+    attachDrag(t);
+    tilesEl.appendChild(t);
+    tileEls.push(t);
+  });
+}
+
+/* ドラッグ処理 */
+function attachDrag(t) {
+  let dragging = false, offX = 0, offY = 0, startPointer = null, moved = false;
+
+  t.addEventListener("pointerdown", e => {
+    if (solved) return;
+    unlockSpeech();
+    dragging = true; moved = false;
+    t.setPointerCapture(e.pointerId);
+    const r = t.getBoundingClientRect();
+    offX = e.clientX - r.left; offY = e.clientY - r.top;
+    startPointer = { x: e.clientX, y: e.clientY };
+    t.classList.add("drag");
+
+    // 枠にはまっていた場合は外す
+    if (t._slot !== null) {
+      slotState[t._slot] = null;
+      const s = slotsEl.children[t._slot];
+      s.classList.remove("filled");
+      t._slot = null;
+      t.classList.remove("placed");
+    }
+    // 画面座標のまま動かす(親を一時的に body 直下相当の play に)
+    const pr = playEl.getBoundingClientRect();
+    if (t.parentElement !== playEl) {
+      playEl.appendChild(t);
+      t.style.left = (r.left - pr.left) + "px";
+      t.style.top  = (r.top  - pr.top)  + "px";
+    }
+    sayNow(t.textContent);
+    // ドラッグ中、0.7秒間隔で発音
+    clearInterval(dragSayTimer);
+    dragSayTimer = setInterval(() => { if (dragging) sayLoop(t.textContent); }, TILE_SAY_INTERVAL);
+  });
+
+  t.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    if (Math.hypot(e.clientX - startPointer.x, e.clientY - startPointer.y) > 6) moved = true;
+    const pr = playEl.getBoundingClientRect();
+    t.style.left = (e.clientX - pr.left - offX) + "px";
+    t.style.top  = (e.clientY - pr.top  - offY) + "px";
+    highlightSlot(e.clientX, e.clientY);
+  });
+
+  const end = e => {
+    if (!dragging) return;
+    dragging = false;
+    clearInterval(dragSayTimer); dragSayTimer = null;
+    t.classList.remove("drag");
+    clearHot();
+    dropTile(t, e.clientX, e.clientY, moved);
+  };
+  t.addEventListener("pointerup", end);
+  t.addEventListener("pointercancel", end);
+}
+
+function slotAt(cx, cy) {
+  const kids = Array.from(slotsEl.children);
+  let best = -1, bestD = 1e9;
+  kids.forEach((s, i) => {
+    const r = s.getBoundingClientRect();
+    const mx = r.left + r.width / 2, my = r.top + r.height / 2;
+    const d = Math.hypot(cx - mx, cy - my);
+    if (d < bestD) { bestD = d; best = i; }
+  });
+  if (best < 0) return -1;
+  const r = kids[best].getBoundingClientRect();
+  return bestD < r.width * 0.85 ? best : -1;
+}
+function highlightSlot(cx, cy) {
+  clearHot();
+  const i = slotAt(cx, cy);
+  if (i >= 0 && slotState[i] === null) slotsEl.children[i].classList.add("hot");
+}
+function clearHot() { Array.from(slotsEl.children).forEach(s => s.classList.remove("hot")); }
+
+function dropTile(t, cx, cy, moved) {
+  const i = slotAt(cx, cy);
+
+  // ほとんど動かさずに離した = タップ → 発音のみ、元の位置へ
+  if (!moved || i < 0 || slotState[i] !== null) {
+    returnHome(t, moved && i >= 0 && slotState[i] !== null);
+    return;
+  }
+  // 枠に置く(正解・不正解にかかわらず一旦置く。全部埋まったら判定)
+  placeInSlot(t, i);
+  SE.drop();
+  checkAnswer();
+}
+
+function placeInSlot(t, i) {
+  const s = slotsEl.children[i];
+  const pr = playEl.getBoundingClientRect();
+  const r = s.getBoundingClientRect();
+  const tw = t.offsetWidth;
+  t.style.left = (r.left - pr.left + (r.width - tw) / 2) + "px";
+  t.style.top  = (r.top  - pr.top  + (r.height - tw) / 2) + "px";
+  t.classList.add("placed");
+  s.classList.add("filled");
+  slotState[i] = t;
+  t._slot = i;
+}
+
+function returnHome(t, buzz) {
+  if (buzz) { SE.nope(); t.classList.add("back"); setTimeout(() => t.classList.remove("back"), 360); }
+  // 下のエリアへ戻す
+  const pr = playEl.getBoundingClientRect();
+  const tr = tilesEl.getBoundingClientRect();
+  if (t.parentElement !== tilesEl) {
+    tilesEl.appendChild(t);
+    // 画面座標のまま保つ
+    const cr = t.getBoundingClientRect();
+  }
+  t.style.left = t._home.x + "px";
+  t.style.top  = t._home.y + "px";
+  t.classList.remove("placed");
+}
+
+/* 全部の枠が埋まったら判定 */
+function checkAnswer() {
+  if (slotState.some(s => s === null)) return;
+  const word = slotState.map(t => t.textContent).join("");
+  if (word === cur.word) {
+    solved = true;
+    SE.fanfare();
+    setTimeout(catchSequence, 500);
+  } else {
+    // 間違い:ぜんぶ戻す
+    SE.nope();
+    speak("もういちど!", 100);
+    setTimeout(() => {
+      slotState.slice().forEach(t => { if (t) { Array.from(slotsEl.children).forEach(s => s.classList.remove("filled")); } });
+      const ts = slotState.slice();
+      slotState = new Array(cur.chars.length).fill(null);
+      ts.forEach(t => { if (t) { t._slot = null; returnHome(t, false); } });
+    }, 700);
+  }
+}
+
+/* ボールの演出:飛んでいく → 画像が吸い込まれる → 揺れる → 収まる */
+function resetBallUI() {
+  ballEl.style.display = "none";
+  ballEl.className = "";
+  ballEl.style.transition = "none";
+  flashEl.style.opacity = 0;
+  catchText.classList.remove("show");
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function catchSequence() {
+  const pr = playEl.getBoundingClientRect();
+  const ir = targetImg.getBoundingClientRect();
+  const imgCx = ir.left - pr.left + ir.width / 2;
+  const imgCy = ir.top  - pr.top  + ir.height / 2;
+  const bw = ballEl.offsetWidth || Math.min(window.innerHeight * 0.18, window.innerWidth * 0.26);
+
+  // 発射位置:画面下中央
+  const startX = pr.width / 2, startY = pr.height + bw;
+  ballEl.style.display = "block";
+  ballEl.style.transition = "none";
+  ballEl.style.left = (startX - bw / 2) + "px";
+  ballEl.style.top  = (startY - bw / 2) + "px";
+  ballEl.style.transform = "rotate(0deg) scale(0.8)";
+  void ballEl.offsetWidth;
+
+  // 1) 放物線で画像へ飛ぶ(回転しながら)
+  SE.whoosh();
+  const dur = 900;
+  const t0 = performance.now();
+  await new Promise(res => {
+    const step = now => {
+      const p = Math.min(1, (now - t0) / dur);
+      const x = startX + (imgCx - startX) * p;
+      const arc = -Math.sin(p * Math.PI) * pr.height * 0.28;   // 山なりの軌道
+      const y = startY + (imgCy - startY) * p + arc;
+      ballEl.style.left = (x - bw / 2) + "px";
+      ballEl.style.top  = (y - bw / 2) + "px";
+      ballEl.style.transform = `rotate(${p * 720}deg) scale(${0.8 + 0.2 * p})`;
+      p < 1 ? requestAnimationFrame(step) : res();
+    };
+    requestAnimationFrame(step);
+  });
+
+  // 2) ボールが開き、画像が赤く光りながら吸い込まれる
+  ballEl.style.transform = "rotate(0deg) scale(1)";
+  ballEl.classList.add("open");
+  SE.suck();
+  flashEl.style.background = "#ff8a80";
+  flashEl.style.transition = "opacity .25s";
+  flashEl.style.opacity = 0.55;
+  targetImg.style.transition = "transform .7s ease-in, opacity .7s ease-in, filter .7s";
+  targetImg.style.filter = "brightness(2.2) saturate(0.4)";
+  targetImg.style.transform = "translateX(-50%) scale(0.05)";
+  targetImg.style.opacity = 0.2;
+  await sleep(700);
+  flashEl.style.opacity = 0;
+  targetImg.style.opacity = 0;
+
+  // 3) ボールが閉じて、地面に落ちる
+  ballEl.classList.remove("open");
+  SE.click();
+  const groundY = pr.height * 0.52 - bw / 2;
+  ballEl.style.transition = "top .5s cubic-bezier(.3,1.5,.5,1)";
+  ballEl.style.top = groundY + "px";
+  await sleep(550);
+  SE.clunk();
+
+  // 4) ボールが3回揺れる
+  for (let k = 0; k < 3; k++) {
+    await sleep(350);
+    ballEl.style.transition = "transform .18s";
+    ballEl.style.transform = "rotate(-22deg)"; await sleep(180);
+    ballEl.style.transform = "rotate(22deg)";  await sleep(180);
+    ballEl.style.transform = "rotate(0deg)";   await sleep(150);
+    SE.clunk();
+  }
+  await sleep(300);
+
+  // 5) 収まった!(カチッ+きらきら)
+  SE.click();
+  flashEl.style.background = "#fff59d";
+  flashEl.style.opacity = 0.7;
+  await sleep(160);
+  flashEl.style.transition = "opacity .6s";
+  flashEl.style.opacity = 0;
+  confetti();
+  SE.done();
+
+  // 6) 「〇〇を捕まえた!」
+  catchText.textContent = `${cur.word}を つかまえた!`;
+  catchText.style.display = "block";
+  catchText.classList.remove("show"); void catchText.offsetWidth; catchText.classList.add("show");
+  speak(`${cur.word}を つかまえた!`, 100);
+
+  // 画像のスタイルを戻す準備
+  targetImg.style.transition = "none";
+  targetImg.style.filter = "none";
+
+  playNext.style.display = "block";
+}
+
+document.getElementById("playNext").onclick = () => { SE.tap(); resetBallUI(); startBushGame(); };
+document.getElementById("playBack").onclick = () => { SE.tap(); clearInterval(dragSayTimer); resetBallUI(); startBushGame(); };
+document.getElementById("playHear").onclick = () => { if (cur) speak(cur.word); };
+document.getElementById("fieldBack").onclick = () => { SE.tap(); show("home"); };
+
+/* 起動時に words.txt を読み込む */
+wordsReady = loadWords();
 </script>
 </body>
 </html>

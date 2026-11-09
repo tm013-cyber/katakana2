@@ -304,20 +304,21 @@ async function loadWords() {
     x.send();
   });
 }
+const imgPending = {};   // 確認中の Promise
 function findImage(key) {
-  if (key in imgCache) return Promise.resolve(imgCache[key]);
-  return new Promise(resolve => {
-    let i = 0;
-    const tryNext = () => {
-      if (i >= IMG_EXTS.length) { imgCache[key] = null; resolve(null); return; }
-      const url = `${REWARD_DIR}${key}.${IMG_EXTS[i++]}`;
+  if (key in imgCache) return Promise.resolve(imgCache[key]);   // 確認済み(URL または null)
+  if (imgPending[key]) return imgPending[key];                  // 確認中
+  imgPending[key] = new Promise(resolve => {
+    let remain = IMG_EXTS.length, done = false;
+    IMG_EXTS.forEach(ext => {
+      const url = `${REWARD_DIR}${key}.${ext}`;
       const im = new Image();
-      im.onload = () => { imgCache[key] = url; resolve(url); };
-      im.onerror = tryNext;
+      im.onload = () => { if (!done) { done = true; imgCache[key] = url; resolve(url); } };
+      im.onerror = () => { if (--remain === 0 && !done) { imgCache[key] = null; resolve(null); } };
       im.src = url;
-    };
-    tryNext();
+    });
   });
+  return imgPending[key];
 }
 async function collectRewards(ch) {
   const roma = ROMA[ch];
@@ -1399,19 +1400,19 @@ function bushSVG(seed) {
 /* 出題候補を集める:画像と言葉の両方がある報酬だけ */
 async function buildBushPool() {
   if (wordsReady) await wordsReady;
-  const pool = [];
-  const chars = Object.keys(ROMA);
-  for (const ch of chars) {
+  const targets = [];
+  for (const ch of Object.keys(ROMA)) {
     const roma = ROMA[ch];
     for (let n = 1; n <= MAX_PER_CHAR; n++) {
       const key = `${roma}_${n}`;
       const word = WORDS[key];
-      if (!word) continue;
-      const img = await findImage(key);
-      if (!img) continue;
-      pool.push({ key, word, img, ch });
+      if (word) targets.push({ key, word, ch });   // 言葉がある項目だけ
     }
   }
+  // 全項目の画像確認を同時に実行
+  const imgs = await Promise.all(targets.map(t => findImage(t.key)));
+  const pool = [];
+  targets.forEach((t, i) => { if (imgs[i]) pool.push({ ...t, img: imgs[i] }); });
   return pool;
 }
 
@@ -1420,7 +1421,7 @@ async function startBushGame() {
   show("field");
   document.getElementById("fieldTitle").textContent = "よみこみちゅう…";
   bushArea.innerHTML = "";
-  bushPool = await buildBushPool();
+  bushPool = await (poolPromise || (poolPromise = buildBushPool()));
   if (!bushPool.length) {
     document.getElementById("fieldTitle").textContent = "がぞうと ことばが ありません";
     return;
@@ -1813,6 +1814,9 @@ document.getElementById("fieldBack").onclick = () => { SE.tap(); show("home"); }
 
 /* 起動時に words.txt を読み込む */
 wordsReady = loadWords();
+// 起動後すぐ、出題候補を先読みして画像の確認を済ませておく(ゲーム開始時の待ちを減らす)
+let poolPromise = null;
+wordsReady.then(() => { poolPromise = buildBushPool(); });
 </script>
 </body>
 </html>
